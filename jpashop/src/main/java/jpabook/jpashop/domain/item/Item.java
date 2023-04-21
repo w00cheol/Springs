@@ -1,4 +1,4 @@
-package jpabook.jpashop.domain.item;
+package jpabook.jpashop.domain.Item;
 
 import jakarta.persistence.*;
 import jpabook.jpashop.domain.Category;
@@ -10,10 +10,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Getter
-@Setter
 @Inheritance(strategy = InheritanceType.SINGLE_TABLE)
 @DiscriminatorColumn(name = "dtype")
+@Getter
+@Setter
 public abstract class Item {
 
     @Id
@@ -25,25 +25,20 @@ public abstract class Item {
 
     private int price;
 
-    private int stackQuantity;
+    private int stockQuantity;
 
     @ManyToMany(mappedBy = "items")
-    private List<Category> categories = new ArrayList<>();
+    private List<Category> categories = new ArrayList<Category>();
 
-    /**
-     * 재고 증가
-     */
     public void addStock(int quantity) {
-        this.stackQuantity += quantity;
+        this.stockQuantity += quantity;
     }
 
-    /**
-     * 재고 감ㅅ
-     */
     public void removeStock(int quantity) {
-        if (this.stackQuantity - quantity < 0) {
-            throw new NotEnoughStockException("need more stock");
+        if (this.stockQuantity - quantity < 0) {
+            throw new NotEnoughStockException("재고가 부족합니다.");
         }
-        this.stackQuantity -= quantity;
+
+        this.stockQuantity -= quantity;
     }
 }

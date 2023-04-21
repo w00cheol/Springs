@@ -1,14 +1,12 @@
 package jpabook.jpashop.domain;
 
 import jakarta.persistence.*;
-import jpabook.jpashop.domain.item.Item;
+import jpabook.jpashop.domain.Item.Item;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import static jakarta.persistence.FetchType.*;
 
 @Entity
 @Getter
@@ -16,30 +14,33 @@ import static jakarta.persistence.FetchType.*;
 public class Category {
 
     @Id
-    @GeneratedValue()
+    @GeneratedValue
     @Column(name = "category_id")
     private Long id;
 
     private String name;
-    private int price;
-    private int stackQuantity;
 
     @ManyToMany
     @JoinTable(name = "category_item",
-            joinColumns = @JoinColumn(name = "category_id"),
-            inverseJoinColumns = @JoinColumn(name = "item_id")
+        joinColumns = @JoinColumn(name = "category_id"),
+        inverseJoinColumns = @JoinColumn(name = "item_id")
     )
-    private List<Item> items = new ArrayList<>();
+    private List<Item> items = new ArrayList<Item>();
 
-    @ManyToOne(fetch = LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private Category parent;
 
     @OneToMany(mappedBy = "parent")
-    private List<Category> child = new ArrayList<Category>();
+    private List<Category> children = new ArrayList<Category>();
 
     public void addChildCategory(Category child) {
-        this.child.add(child);
-        child.setParent(this);
+        this.children.add(child);
+        child.parent = this;
+    }
+
+    public void setParent(Category parent) {
+        this.parent = parent;
+        parent.getChildren().add(this);
     }
 }

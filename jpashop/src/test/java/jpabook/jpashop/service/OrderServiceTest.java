@@ -2,100 +2,122 @@ package jpabook.jpashop.service;
 
 import jakarta.persistence.EntityManager;
 import jpabook.jpashop.domain.Address;
+import jpabook.jpashop.domain.Item.Book;
+import jpabook.jpashop.domain.Item.Movie;
 import jpabook.jpashop.domain.Member;
 import jpabook.jpashop.domain.Order;
 import jpabook.jpashop.domain.OrderStatus;
-import jpabook.jpashop.domain.item.Book;
-import jpabook.jpashop.domain.item.Item;
 import jpabook.jpashop.exception.NotEnoughStockException;
 import jpabook.jpashop.repository.OrderRepository;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import org.junit.Assert;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit4.SpringRunner;
 import org.springframework.transaction.annotation.Transactional;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
-@RunWith(SpringRunner.class)
+
 @SpringBootTest
+@RunWith(SpringRunner.class)
 @Transactional
-class OrderServiceTest {
+public class OrderServiceTest {
 
     @Autowired EntityManager em;
     @Autowired OrderService orderService;
     @Autowired OrderRepository orderRepository;
 
     @Test
-    public void 상품주문() {
-        Member member = new Member();
-        member.setName("woo");
-        member.setAddress(new Address("seoul", "ka", "23412"));
-        em.persist(member);
+    public void 상품주문() throws Exception {
+        //given
+        Member member = createMember();
 
-        Book book = new Book();
-        book.setName("JPA");
-        book.setPrice(10000);
-        book.setStackQuantity(10);
-        em.persist(book);
+        Book book = createBook();
+        int bookOrderCount = 2;
 
-        int orderCount = 2;
+        Movie movie = createMovie();
+        int movieOrderCount = 3;
 
+        //when
+        Long bookOrderId = orderService.order(member.getId(), book.getId(), bookOrderCount);
+        Long movieOrderId = orderService.order(member.getId(), movie.getId(), movieOrderCount);
+
+        //then
+        Order getBookOrder = orderRepository.findOne(bookOrderId);
+        Order getMovieOrder = orderRepository.findOne(movieOrderId);
+
+        assertEquals("상품 주문 시 상태는 ORDER", OrderStatus.ORDER, getBookOrder.getStatus());
+        assertEquals("주문한 상품 종류 수가 정확해야 한다.", 1, getMovieOrder.getOrderItems().size());
+        assertEquals("주문 가격은 가격 * 수량이다.", 10000 * bookOrderCount, getBookOrder.getTotalPrice());
+        assertEquals("주문 수량만큼 재고가 줄어든다.", 10 - bookOrderCount, book.getStockQuantity());
+
+    }
+
+    @Test(expected = NotEnoughStockException.class)
+    public void 상품주문_재고수량초과() throws Exception {
+        //given
+        Member member = createMember();
+        Book book = createBook();
+        int orderCount = book.getStockQuantity() + 1;
+        
+        //when
         Long orderId = orderService.order(member.getId(), book.getId(), orderCount);
 
-        Order getOrder = orderRepository.findOne(orderId);
-
-        assertThat(getOrder.getStatus()).isEqualTo(OrderStatus.ORDER);
-        assertThat(getOrder.getOrderItems().size()).isEqualTo(1);
-        assertThat(getOrder.getTotalPrice()).isEqualTo(10000 * orderCount);
-        assertThat(book.getStackQuantity()).isEqualTo(8);
+        //then
+        fail("재고 수량 부족 예외가 발생해야 합니다.");
     }
 
     @Test
-    public void 주문취소() {
-        Member member = new Member();
-        member.setName("woo");
-        member.setAddress(new Address("seoul", "ka", "23412"));
-        em.persist(member);
-
-        Book book = new Book();
-        book.setName("JPA");
-        book.setPrice(10000);
-        book.setStackQuantity(10);
-        em.persist(book);
-
-        int orderCount = 2;
+    public void 주문취소() throws Exception {
+        //given
+        Member member = createMember();
+        Book book = createBook();
+        int orderCount = 5;
 
         Long orderId = orderService.order(member.getId(), book.getId(), orderCount);
 
+        //when
         orderService.cancelOrder(orderId);
 
+        //then
         Order getOrder = orderRepository.findOne(orderId);
 
-        assertThat(getOrder.getStatus()).isEqualTo(OrderStatus.CANCEL);
-        assertThat(book.getStackQuantity()).isEqualTo(10);
 
+        assertEquals("주문 취소 시 상태는 CANCEL이다", OrderStatus.CANCEL, getOrder.getStatus());
+        assertEquals("주문 취소 시 재고 원상복구", 10, book.getStockQuantity());
+        System.out.println(getOrder.getStatus());
     }
 
-    @Test
-    public void 상품주문_재고수량초과() {
-        Member member = new Member();
-        member.setName("woo");
-        member.setAddress(new Address("seoul", "ka", "23412"));
-        em.persist(member);
 
+
+    private Movie createMovie() {
+        Movie movie = new Movie();
+        movie.setActor("배우1");
+        movie.setDirector("감독1");
+        movie.setPrice(12000);
+        movie.setStockQuantity(20);
+        em.persist(movie);
+        return movie;
+    }
+
+    private Book createBook() {
         Book book = new Book();
-        book.setName("JPA");
+        book.setName("시골 JPA");
         book.setPrice(10000);
-        book.setStackQuantity(10);
+        book.setStockQuantity(10);
+
         em.persist(book);
+        return book;
+    }
 
-        int orderCount = book.getStackQuantity() + 1;
-
-        assertThrows(NotEnoughStockException.class,
-                () -> orderService.order(member.getId(), book.getId(), orderCount));
+    private Member createMember() {
+        Member member = new Member();
+        member.setName("회원1");
+        member.setAddress(new Address("서울", "경기", "123-456"));
+        em.persist(member);
+        return member;
     }
 }
